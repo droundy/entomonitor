@@ -1,0 +1,8 @@
+*.[oa8651]
+*~
+*.exe
+*.log
+entomonitor
+tmp
+\#*
+.\#*
