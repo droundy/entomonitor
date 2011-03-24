@@ -13,7 +13,9 @@ cd $TEMPDIR
 
 # Here is the bit where we check that everything compiles.  If we want
 # to run a test suite, we should do that here.
-make
+which gb || (echo You need to install gb to build entomonitor && exit 1)
+
+gb
 
 # Now let's gofmt everything...
 
