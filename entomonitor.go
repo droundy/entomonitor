@@ -4,7 +4,6 @@ package main
 import (
 	"fmt"
 	"os"
-	"bufio"
 	"io/ioutil"
 	"entomon"
 	"github.com/droundy/goopt"
@@ -12,6 +11,7 @@ import (
 
 var action = goopt.Alternatives([]string{"-A", "--action"},
 	[]string{"help", "new-issue"}, "select the action to be performed")
+var message = goopt.String([]string{"-m", "--message"}, "", "short message")
 
 func dieOn(err os.Error) {
 	if err != nil {
@@ -31,17 +31,13 @@ func main() {
 	}
 	switch *action {
 	case "new-issue":
-		fmt.Print("What is your name? ")
-		inp, e := bufio.NewReaderSize(os.Stdin, 1)
-		dieOn(e)
-		name, e := inp.ReadString('\n')
-		if len(name) < 1 {
-			name = "\n"
+		if *message == "" {
+			fmt.Print("What is the problem? ")
+			bugtext, _ := ioutil.ReadAll(os.Stdin)
+			fmt.Println("Done here")
+			*message = string(bugtext)
 		}
-		fmt.Print("What is the problem? ")
-		bugtext, _ := ioutil.ReadAll(os.Stdin)
-		fmt.Println("Done here")
-		dieOn(entomon.NewIssue(name[:len(name)-1], string(bugtext)))
+		dieOn(entomon.NewIssue(*message))
 	default:
 		fmt.Println("I should do", *action)
 		os.Exit(1)

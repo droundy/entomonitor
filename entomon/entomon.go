@@ -4,6 +4,7 @@ package entomon
 import (
 	"fmt"
 	"os"
+	"exec"
 	"rand"
 	crand "crypto/rand"
 	"time"
@@ -11,6 +12,7 @@ import (
 	"strings"
 	"path/filepath"
 	"io/ioutil"
+	"github.com/droundy/goopt"
 )
 
 func init() {
@@ -27,30 +29,37 @@ func init() {
 	rand.Seed(seed)
 }
 
-var (
-	vowels = []string{"a", "a", "ae", "au",
-		"e", "e", "e", "ea", "ee",
-		"i", "io", "iu", "ie", "iou",
-		"o", "oo", "ou",
-		"u", "uou"}
-	consonants = []string{"b", "c", "ch", "d", "f", "g", "h", "j", "k", "l", "m", "n",
-		"p", "qu",
-		"r", "rd", "rf", "rm", "rn", "rk", "rl", "rj", "rp", "rs", "rt", "rsh", "rth", "rv",
-		"s", "sh", "st", "sk", "sch",
-		"t", "th", "tch",
-		"v", "w", "x", "y", "z", "",
+func getDefaultAuthor() string {
+	args := []string{"git", "var", "GIT_AUTHOR_IDENT"}
+	git, err := exec.LookPath("git")
+	if err != nil {
+		return err.String()
 	}
-	postconsonants = []string{"r", "l", "", "", "", "", "", "", "-", "-"}
-)
+	pid, err := exec.Run(git, args, nil, "", exec.PassThrough, exec.Pipe, exec.PassThrough)
+	if err != nil {
+		return err.String()
+	}
+	o, err := ioutil.ReadAll(pid.Stdout)
+	if err != nil {
+		return err.String()
+	}
+	_, err = pid.Wait(0) // could have been os.WRUSAGE
+	if err != nil {
+		return err.String()
+	}
+	const ndate = 17
+	lines := bytes.Split(o, []byte{'\n'}, 2)
+	if len(lines[0]) > ndate {
+		lines[0] = lines[0][:len(lines[0])-ndate]
+	}
+	return string(lines[0])
+}
 
-func randString() string {
-	out := ""
-	for len(out) < 30 {
-		out = out + consonants[rand.Intn(len(consonants))] +
-			postconsonants[rand.Intn(len(postconsonants))] +
-			vowels[rand.Intn(len(vowels))]
-	}
-	return string(out[:30])
+var Author = goopt.String([]string{"--author"}, getDefaultAuthor(), "author of this change")
+
+func createName() string {
+	*Author = strings.Replace(strings.Replace(strings.Replace(*Author, "\n", " ", -1), "/", "-", -1), "\\", "-", -1)
+	return time.SecondsToUTC(time.Seconds()).Format(time.RFC3339) + "--" + *Author
 }
 
 func isEntomonHere() bool {
@@ -101,8 +110,8 @@ func ProjectName() (name string, err os.Error) {
 	return filepath.Base(origd), err
 }
 
-func WriteComment(dname, author, text string) os.Error {
-	id := randString()
+func WriteComment(dname, text string) os.Error {
+	id := createName()
 	err := os.MkdirAll(dname, 0777)
 	if err != nil {
 		return err
@@ -113,29 +122,13 @@ func WriteComment(dname, author, text string) os.Error {
 		return err
 	}
 	defer comment.Close()
-	now := time.Seconds()
-	_, err = fmt.Fprintln(comment, time.SecondsToUTC(now).Format(time.RFC3339))
-	if err != nil {
-		goto cleanup
-	}
-	_, err = fmt.Fprintln(comment, author)
-	if err != nil {
-		goto cleanup
-	}
 	_, err = fmt.Fprintln(comment, text)
-	return err
-cleanup:
-	comment.Close()
-	os.Remove(fname) // We should try to clean up...
 	return err
 }
 
-func NewIssue(author, text string) os.Error {
-	if strings.IndexRune(author, '\n') != -1 {
-		return os.NewError("NewIssue: Invalid character '\\n' in author")
-	}
-	id := randString()
-	err := WriteComment(".entomon/issue/"+id, author, text)
+func NewIssue(text string) os.Error {
+	id := createName()
+	err := WriteComment(".entomon/issue/"+id, text)
 	if err != nil {
 		return err
 	}
