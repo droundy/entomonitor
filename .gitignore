@@ -2,7 +2,7 @@
 *~
 *.exe
 *.log
-entomonitor
+bin/*
 tmp
 \#*
 .\#*
