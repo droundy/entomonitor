@@ -4,7 +4,7 @@
 *.log
 bin/*
 entomonitor
-entomonview
+entomonview/entomonview
 tmp
 \#*
 .\#*
