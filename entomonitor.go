@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"io/ioutil"
-	"entomon"
+	"έντομο"
 	"github.com/droundy/goopt"
 )
 
@@ -20,9 +20,11 @@ func dieOn(err os.Error) {
 	}
 }
 
+var bug = έντομο.Type("bug")
+
 func main() {
 	goopt.Parse(func() []string { return nil })
-	pname, err := entomon.ProjectName()
+	pname, err := έντομο.ProjectName()
 	dieOn(err)
 	fmt.Println("Project name is", pname)
 	if *action == "help" {
@@ -37,7 +39,8 @@ func main() {
 			fmt.Println("Done here")
 			*message = string(bugtext)
 		}
-		dieOn(entomon.NewIssue(*message))
+		_,err := bug.New(*message)
+		dieOn(err)
 	default:
 		fmt.Println("I should do", *action)
 		os.Exit(1)

@@ -1,5 +1,5 @@
-//target:entomon
-package entomon
+//target:έντομο
+package έντομο
 
 import (
 	"fmt"
@@ -126,12 +126,30 @@ func WriteComment(dname, text string) os.Error {
 	return err
 }
 
-func NewIssue(text string) os.Error {
-	id := createName()
-	err := WriteComment(".entomon/issue/"+id, text)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Created issue", id)
-	return nil
+// A Type represents a class of items.  Typical Types would be "bug",
+// "issue" or "todo".  A Type would not normally be useful for
+// distinguishing between "wishlist", "feature-request" or "real"
+// bugs, which should be managed by an Attribute, so you can easily
+// change a bug from one to another (since bug reporters commonly
+// misclassify bugs!).
+type Type string
+
+// έντομο
+
+func (t Type) New(text string) (b Bug, err os.Error) {
+	b.Type = t
+	b.Id = createName()
+	b.Attributes = make(map[string]string)
+	err = WriteComment(".entomon/" + string(t) + "/"+b.Id, text)
+	return
+}
+
+type Bug struct {
+	Id string
+	Type
+	Attributes map[string]string
+}
+
+func (b *Bug) String() string {
+	return fmt.Sprint(b.Type, "-", b.Id)
 }
