@@ -3,6 +3,7 @@ package main
 import (
 	"http"
 	"fmt"
+	"strings"
 	"έντομο"
 	"github.com/droundy/gui"
 	"github.com/droundy/goopt"
@@ -21,8 +22,10 @@ func main() {
 	if err != nil {
 		panic("bug.List: " + err.String())
 	}
+	bugtable := [][]gui.Widget{}
 	for bnum, b := range bl {
-		bugs = append(bugs, gui.Text(""), gui.Text(fmt.Sprint(bug, "-", bnum)))
+		bugname := fmt.Sprint(bug, "-", bnum)
+		bugs = append(bugs, gui.Text(""), gui.Text(bugname))
 		cs, err := b.Comments()
 		if err != nil {
 			continue
@@ -30,48 +33,14 @@ func main() {
 		for _, c := range cs {
 			bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
 		}
+		lines := strings.Split(cs[0].Text, "\n", 2)
+		bugtable = append(bugtable, []gui.Widget{ gui.Button(bugname),
+			gui.Text(lines[0]), gui.Text(cs[0].Date)})
 	}
+	bugs = append(bugs, gui.Empty(), gui.Empty(), gui.Table(bugtable...))
 	err = gui.Run(*port,
 		gui.Column(bugs...))
 	if err != nil {
 		panic("ListenAndServe: " + err.String())
 	}
-}
-
-func styleServer(c http.ResponseWriter, req *http.Request) {
-	c.SetHeader("Content-Type", "text/css")
-	fmt.Fprint(c, `
-html {
-    margin: 0;
-    padding: 0;
-}
-
-body {
-    margin: 0;
-    padding: 0;
-    background: #ffffff;
-    font-family: arial,helvetica,"sans serif";
-    font-size: 12pt;
-}
-h1 {
-font-family: verdana,helvetica,"sans serif";
-font-weight: bold;
-font-size: 16pt;
-}
-h2 { font-family: verdana,helvetica,"sans serif";
-font-weight: bold;
-font-size: 14pt;
-}
-p {
-font-family: arial,helvetica,"sans serif";
-font-size:12pt;
-}
-li {
-  font-family: arial,helvetica,"sans serif";
-  font-size: 12pt;
-}
-a {
-  color: #555599;
-}
-`)
 }

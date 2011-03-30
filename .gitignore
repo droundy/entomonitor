@@ -3,6 +3,8 @@
 *.exe
 *.log
 bin/*
+entomonitor
+entomonview
 tmp
 \#*
 .\#*
