@@ -5,29 +5,14 @@ import (
 	"fmt"
 	"os"
 	"exec"
-	"rand"
-	crand "crypto/rand"
 	"time"
 	"bytes"
 	"strings"
+	"sort"
 	"path/filepath"
 	"io/ioutil"
 	"github.com/droundy/goopt"
 )
-
-func init() {
-	// Here we seed the random number generator.  I take the lazy
-	// expensive route and seed it with a cryptographically strong seed.
-	// It'd be better to use the time and maybe something else local
-	// like hostname and/or user name.  But that'd be more coding.
-	b := make([]byte, 8)
-	crand.Read(b) // ignore output, since there's nothing we can do here
-	var seed int64
-	for _, x := range b {
-		seed = int64(x) + 256*seed
-	}
-	rand.Seed(seed)
-}
 
 func getDefaultAuthor() string {
 	args := []string{"git", "var", "GIT_AUTHOR_IDENT"}
@@ -140,7 +125,24 @@ func (t Type) New(text string) (b Bug, err os.Error) {
 	b.Type = t
 	b.Id = createName()
 	b.Attributes = make(map[string]string)
-	err = WriteComment(".entomon/" + string(t) + "/"+b.Id, text)
+	err = WriteComment(".entomon/"+string(t)+"/"+b.Id, text)
+	return
+}
+
+func (t Type) List() (out []Bug, err os.Error) {
+	d, err := os.Open(".entomon/"+string(t), os.O_RDONLY, 0)
+	defer d.Close()
+	if err != nil {
+		return out, nil
+	}
+	ns, err := d.Readdirnames(-1)
+	if err != nil {
+		return
+	}
+	sort.SortStrings(ns)
+	for _, n := range ns {
+		out = append(out, Bug{n, t, nil})
+	}
 	return
 }
 
@@ -151,5 +153,36 @@ type Bug struct {
 }
 
 func (b *Bug) String() string {
-	return fmt.Sprint(b.Type, "-", b.Id)
+	return fmt.Sprint(b.Type, "/", b.Id)
+}
+
+type Comment struct {
+	Author string
+	Date   string
+	Text   string
+}
+
+func (b *Bug) Comments() (out []Comment, err os.Error) {
+	d, err := os.Open(".entomon/"+string(b.Type)+"/"+b.Id, os.O_RDONLY, 0)
+	defer d.Close()
+	if err != nil {
+		return out, nil
+	}
+	ns, err := d.Readdirnames(-1)
+	d.Close()
+	if err != nil {
+		return
+	}
+	sort.SortStrings(ns)
+	for _, n := range ns {
+		dateauthor := strings.Split(n, "--", 2)
+		c := Comment{dateauthor[1], dateauthor[0], ""}
+		x, err := ioutil.ReadFile(".entomon/" + b.String() + "/" + n)
+		if err != nil {
+			return out, err
+		}
+		c.Text = string(x)
+		out = append(out, c)
+	}
+	return
 }

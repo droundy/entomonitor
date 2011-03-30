@@ -1,0 +1,6 @@
+Implement bug attributes
+We need to implement "bug attributes" which would be things
+like status, cc lists, etc.  These attributes would be changed
+by new comments to the bug, and would be computed by reading
+through the comments in chronological order.
+

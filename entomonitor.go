@@ -39,7 +39,7 @@ func main() {
 			fmt.Println("Done here")
 			*message = string(bugtext)
 		}
-		_,err := bug.New(*message)
+		_, err := bug.New(*message)
 		dieOn(err)
 	default:
 		fmt.Println("I should do", *action)
