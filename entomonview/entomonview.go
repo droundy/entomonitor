@@ -24,6 +24,7 @@ func main() {
 	}
 	bugtable := [][]gui.Widget{}
 	for bnum, b := range bl {
+		b.Comments() // to get attributes
 		bugname := fmt.Sprint(bug, "-", bnum)
 		bugs = append(bugs, gui.Text(""), gui.Text(bugname))
 		cs, err := b.Comments()
@@ -34,8 +35,14 @@ func main() {
 			bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
 		}
 		lines := strings.Split(cs[0].Text, "\n", 2)
-		bugtable = append(bugtable, []gui.Widget{ gui.Button(bugname),
+		bugtable = append(bugtable, []gui.Widget{gui.Button(bugname),
 			gui.Text(lines[0]), gui.Text(cs[0].Date)})
+		for k, v := range b.Attributes {
+			fmt.Println("key", k, v)
+			bugtable = append(bugtable, []gui.Widget{
+				gui.Empty(),
+				gui.Text(k + " ="), gui.Text(v)})
+		}
 	}
 	bugs = append(bugs, gui.Empty(), gui.Empty(), gui.Table(bugtable...))
 	err = gui.Run(*port,

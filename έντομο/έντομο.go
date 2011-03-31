@@ -146,6 +146,29 @@ func (t Type) List() (out []Bug, err os.Error) {
 	return
 }
 
+func LookupBug(b string) (out Bug, err os.Error) {
+	xs := strings.Split(b, "-", 2)
+	t := Type(xs[0])
+	if len(xs) < 2 {
+		err = os.NewError("Should have a '-' in " + b)
+		return
+	}
+	num := 0
+	_, err = fmt.Sscan(xs[1], &num)
+	if err != nil {
+		return
+	}
+	bs, err := t.List()
+	if err != nil {
+		return
+	}
+	if num >= len(bs) || num < 0 {
+		err = os.NewError(fmt.Sprint("Num out of range in ", b, " num is ", num, " len is ", len(bs), " type is ", t))
+		return
+	}
+	return bs[num], err
+}
+
 type Bug struct {
 	Id string
 	Type
@@ -160,6 +183,50 @@ type Comment struct {
 	Author string
 	Date   string
 	Text   string
+}
+
+func (b *Bug) stripAttributes(c Comment) Comment {
+	if b.Attributes == nil {
+		b.Attributes = make(map[string]string)
+	}
+	firstl := []string{}
+	t := c.Text
+	for {
+		lines := strings.Split(t, "\n", 2)
+		if len(lines) < 2 {
+			break
+		}
+		att := strings.Split(lines[0], ": ", 2)
+		if len(att) != 2 {
+			firstl = append(firstl, lines[0])
+			t = lines[1]
+			continue
+		}
+		ch := strings.Split(att[1], " -> ", 2)
+		if len(att[0]) == 0 {
+			break // This isn't an Attribute: line
+		} else {
+			if len(ch) == 2 {
+				// It is a change thing like Foo: baz -> bar
+				old, ok := b.Attributes[att[0]]
+				if ok && old == ch[0] {
+					b.Attributes[att[0]] = ch[1]
+				} else {
+					fmt.Println("ch bad", ch)
+				}
+			} else {
+				b.Attributes[att[0]] = att[1]
+			}
+		}
+		t = lines[1]
+	}
+	firstl = append(firstl, t)
+	c.Text = strings.Join(firstl, "\n")
+	return c
+}
+
+func (b *Bug) AddComment(t string) os.Error {
+	return WriteComment(fmt.Sprint(".entomon/", b.Type, "/", b.Id), t)
 }
 
 func (b *Bug) Comments() (out []Comment, err os.Error) {
@@ -182,6 +249,7 @@ func (b *Bug) Comments() (out []Comment, err os.Error) {
 			return out, err
 		}
 		c.Text = string(x)
+		c = b.stripAttributes(c)
 		out = append(out, c)
 	}
 	return
