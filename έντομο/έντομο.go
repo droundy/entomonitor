@@ -14,6 +14,8 @@ import (
 	"github.com/droundy/goopt"
 )
 
+const ndate = 17
+
 func getDefaultAuthor() string {
 	args := []string{"git", "var", "GIT_AUTHOR_IDENT"}
 	git, err := exec.LookPath("git")
@@ -32,7 +34,6 @@ func getDefaultAuthor() string {
 	if err != nil {
 		return err.String()
 	}
-	const ndate = 17
 	lines := bytes.Split(o, []byte{'\n'}, 2)
 	if len(lines[0]) > ndate {
 		lines[0] = lines[0][:len(lines[0])-ndate]
@@ -141,7 +142,9 @@ func (t Type) List() (out []Bug, err os.Error) {
 	}
 	sort.SortStrings(ns)
 	for _, n := range ns {
-		out = append(out, Bug{n, t, nil})
+		if len(n) > ndate+2 {
+			out = append(out, Bug{n, t, nil})
+		}
 	}
 	return
 }
@@ -188,6 +191,21 @@ type Comment struct {
 func (b *Bug) stripAttributes(c Comment) Comment {
 	if b.Attributes == nil {
 		b.Attributes = make(map[string]string)
+		d, err := os.Open(".entomon/"+string(b.Type)+"/defaults", os.O_RDONLY, 0)
+		as := []string{}
+		if err == nil {
+			as, _ = d.Readdirnames(-1)
+			// No point checking error, since we'll want to assume no
+			// defaults in that case, which is what we woulld have anyhow.
+			d.Close()
+		}
+		for _, a := range as {
+			x, err := ioutil.ReadFile(".entomon/" + string(b.Type) + "/defaults/" + a)
+			if err == nil {
+				xx := strings.Split(string(x), "\n", 2)
+				b.Attributes[a] = xx[0]
+			}
+		}
 	}
 	firstl := []string{}
 	t := c.Text
@@ -243,14 +261,16 @@ func (b *Bug) Comments() (out []Comment, err os.Error) {
 	sort.SortStrings(ns)
 	for _, n := range ns {
 		dateauthor := strings.Split(n, "--", 2)
-		c := Comment{dateauthor[1], dateauthor[0], ""}
-		x, err := ioutil.ReadFile(".entomon/" + b.String() + "/" + n)
-		if err != nil {
-			return out, err
+		if len(dateauthor) == 2 {
+			c := Comment{dateauthor[1], dateauthor[0], ""}
+			x, err := ioutil.ReadFile(".entomon/" + b.String() + "/" + n)
+			if err != nil {
+				return out, err
+			}
+			c.Text = string(x)
+			c = b.stripAttributes(c)
+			out = append(out, c)
 		}
-		c.Text = string(x)
-		c = b.stripAttributes(c)
-		out = append(out, c)
 	}
 	return
 }
