@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"bufio"
-	"io/ioutil"
 	"έντομο"
 	"github.com/droundy/goopt"
 )
@@ -36,10 +35,10 @@ func main() {
 	switch *action {
 	case "new-issue":
 		if *message == "" {
-			fmt.Print("What is the problem? ")
-			bugtext, _ := ioutil.ReadAll(os.Stdin)
-			fmt.Println("Done here")
-			*message = string(bugtext)
+			fmt.Println("What is the problem?")
+			bugtext, err := Edit("ENTER BUG REPORT HERE")
+			dieOn(err)
+			*message = bugtext
 		}
 		_, err := bug.New(*message)
 		dieOn(err)
@@ -56,8 +55,9 @@ func main() {
 		b, err := έντομο.LookupBug(*bugid)
 		dieOn(err)
 		fmt.Print("What do you want to say? ")
-		bugtext, _ := ioutil.ReadAll(os.Stdin)
-		b.AddComment(string(bugtext))
+		bugtext, err := Edit("ENTER COMMENT HERE")
+		dieOn(err)
+		b.AddComment(bugtext)
 	default:
 		fmt.Println("I should do", *action)
 		os.Exit(1)

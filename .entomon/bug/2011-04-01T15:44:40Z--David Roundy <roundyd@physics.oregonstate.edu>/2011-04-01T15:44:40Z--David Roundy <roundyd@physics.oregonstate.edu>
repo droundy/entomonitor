@@ -1,0 +1,7 @@
+Respect the VISUAL and EDITOR environment variables.
+
+We should use them to decide what editor to use, rather than always
+using emacs.
+
+status: accepted
+
