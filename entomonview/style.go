@@ -29,6 +29,12 @@ h2 { font-family: verdana,helvetica,"sans serif";
 font-weight: bold;
 font-size: 14pt;
 }
+td tr.odd {
+  background-color: #bbbbff;
+}
+td dr.even {
+  background-color: #ffffff;
+}
 p {
 font-family: arial,helvetica,"sans serif";
 font-size:12pt;
