@@ -4,6 +4,7 @@ import (
 	"http"
 	"fmt"
 	"strings"
+	"strconv"
 	"έντομο"
 	"github.com/droundy/gui"
 	"github.com/droundy/goopt"
@@ -17,7 +18,6 @@ var todo = έντομο.Type("todo")
 func main() {
 	http.HandleFunc("/style.css", styleServer)
 
-	//gui.HandleSeparate("/bug/", BugPage)
 	err := gui.RunSeparate(*port, Page)
 	if err != nil {
 		panic("ListenAndServe: " + err.String())
@@ -33,11 +33,19 @@ func Page() gui.Widget {
 	var x = new(PageType)
 	x.Widget = BugList()
 	x.OnPath(func() gui.Refresh {
-		p := x.GetPath()
-		if len(p) > 5 && p[:5] == "/bug-" {
-			x.Widget = BugPage(p)
-		}
+		p := x.GetPath()[1:]
 		fmt.Println("My path is actually", p)
+		psplit := strings.Split(p,"-",2)
+		if len(psplit) != 2 {
+			fmt.Println("Not a particular bug")
+			return gui.StillClean
+		}
+		bnum,err := strconv.Atoi(psplit[1])
+		if err != nil || len(psplit[0]) == 0 {
+			fmt.Println("Not a particular bug ii")
+			return gui.StillClean
+		}
+		x.Widget = BugPage(έντομο.Type(psplit[0]), bnum)
 		return gui.NeedsRefresh
 	})
 	return x
@@ -72,7 +80,22 @@ func BugList() gui.Widget {
 	return gui.Column(bugs...)
 }
 
-func BugPage(b string) gui.Widget {
-	bugs := []gui.Widget{gui.Text("This will show a particular bug, some day! " + b)}
+func BugPage(btype έντομο.Type, bnum int) gui.Widget {
+	bl, err := btype.List()
+	if err != nil {
+		return gui.Text("Error: " + err.String())
+	}
+	if bnum >= len(bl) {
+		return gui.Text(fmt.Sprint("Error: no such ",btype," as number ", bnum))
+	}
+	b := bl[bnum]
+	cs, err := b.Comments()
+	if err != nil {
+		return gui.Text("Error: " + err.String())
+	}
+	bugs := []gui.Widget{}
+	for _, c := range cs {
+		bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
+	}
 	return gui.Column(bugs...)
 }
