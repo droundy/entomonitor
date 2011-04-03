@@ -261,6 +261,12 @@ func (b *Bug) Comments() (out []Comment, err os.Error) {
 	sort.SortStrings(ns)
 	for _, n := range ns {
 		dateauthor := strings.Split(n, "--", 2)
+		// Now let's put the date into the current timezone...
+		date, err := time.Parse(time.RFC3339, dateauthor[0])
+		if err == nil {
+			dateauthor[0] = time.SecondsToLocalTime(date.Seconds()).Format(
+				"January 2, 2006 3:04PM")
+		}
 		if len(dateauthor) == 2 {
 			c := Comment{dateauthor[1], dateauthor[0], ""}
 			x, err := ioutil.ReadFile(".entomon/" + b.String() + "/" + n)

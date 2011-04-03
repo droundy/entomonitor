@@ -75,7 +75,7 @@ func BugList(p gui.HasPath) gui.Widget {
 		// }
 		lines := strings.Split(cs[0].Text, "\n", 2)
 		status, _ := b.Attributes["status"]
-		setpath := func() gui.Refresh { p.SetPath("/" + bugname); return p.HandlePath() }
+		setpath := func() gui.Refresh { return p.SetPath("/" + bugname) }
 		bid := gui.Button(bugname)
 		bid.OnClick(setpath)
 		bstatus := gui.Text(status)
@@ -104,10 +104,7 @@ func BugPage(p gui.HasPath, btype έντομο.Type, bnum int) gui.Widget {
 		return gui.Text("Error: " + err.String())
 	}
 	listall := gui.Button("List all bugs")
-	listall.OnClick(func() gui.Refresh {
-		p.SetPath("/")
-		return p.HandlePath()
-	})
+	listall.OnClick(func() gui.Refresh { return p.SetPath("/") })
 	bugs := []gui.Widget{
 		listall,
 	}
