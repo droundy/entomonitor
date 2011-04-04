@@ -30,30 +30,30 @@ type PageType struct {
 }
 
 func Page() gui.Widget {
-	var x = new(PageType)
-	x.Widget = BugList(x)
+	x := gui.MakePathHandler(nil)
+	x.SetWidget(BugList(x))
 	x.OnPath(func() gui.Refresh {
 		p := x.GetPath()[1:]
 		fmt.Println("My path is actually", p)
 		psplit := strings.Split(p, "-", 2)
 		if len(psplit) != 2 {
 			fmt.Println("Not a particular bug")
-			x.Widget = BugList(x)
+			x.SetWidget(BugList(x))
 			return gui.NeedsRefresh
 		}
 		bnum, err := strconv.Atoi(psplit[1])
 		if err != nil || len(psplit[0]) == 0 {
 			fmt.Println("Not a particular bug ii")
-			x.Widget = BugList(x)
+			x.SetWidget(BugList(x))
 			return gui.NeedsRefresh
 		}
-		x.Widget = BugPage(x, έντομο.Type(psplit[0]), bnum)
+		x.SetWidget(BugPage(x, έντομο.Type(psplit[0]), bnum))
 		return gui.NeedsRefresh
 	})
 	return x
 }
 
-func BugList(p gui.HasPath) gui.Widget {
+func BugList(p gui.PathHandler) gui.Widget {
 	bugs := []gui.Widget{gui.Text("This will be a bug browser, some day!")}
 	bl, err := bug.List()
 	if err != nil {
@@ -90,7 +90,7 @@ func BugList(p gui.HasPath) gui.Widget {
 	return gui.Column(bugs...)
 }
 
-func BugPage(p gui.HasPath, btype έντομο.Type, bnum int) gui.Widget {
+func BugPage(p gui.PathHandler, btype έντομο.Type, bnum int) gui.Widget {
 	bl, err := btype.List()
 	if err != nil {
 		return gui.Text("Error: " + err.String())
