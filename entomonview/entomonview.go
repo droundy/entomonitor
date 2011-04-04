@@ -37,13 +37,11 @@ func Page() gui.Widget {
 		fmt.Println("My path is actually", p)
 		psplit := strings.Split(p, "-", 2)
 		if len(psplit) != 2 {
-			fmt.Println("Not a particular bug")
 			x.SetWidget(BugList(x))
 			return gui.NeedsRefresh
 		}
 		bnum, err := strconv.Atoi(psplit[1])
 		if err != nil || len(psplit[0]) == 0 {
-			fmt.Println("Not a particular bug ii")
 			x.SetWidget(BugList(x))
 			return gui.NeedsRefresh
 		}
