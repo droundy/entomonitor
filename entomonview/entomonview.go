@@ -51,6 +51,25 @@ func Page() gui.Widget {
 	return x
 }
 
+func AttributeChooser(b *έντομο.Bug, attr string) interface { gui.Widget; gui.String; gui.Changeable } {
+	opts := b.Type.AttributeOptions(attr)
+	if len(opts) > 1 {
+		menu := gui.Menu(opts...)
+		menu.SetString(b.Attributes[attr])
+		menu.OnChange(func() gui.Refresh {
+			b.WriteAttribute(attr, menu.GetString())
+			return gui.NeedsRefresh
+		})
+		return menu
+	}
+	edit := gui.EditText(b.Attributes[attr])
+	edit.OnChange(func() gui.Refresh {
+		b.WriteAttribute(attr, edit.GetString())
+		return gui.NeedsRefresh
+	})
+	return edit
+}
+
 func BugList(p gui.PathHandler) gui.Widget {
 	bugs := []gui.Widget{gui.Text("This will be a bug browser, some day!")}
 	bl, err := bug.List()
@@ -71,17 +90,13 @@ func BugList(p gui.PathHandler) gui.Widget {
 		// for _, c := range cs {
 		// 	bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
 		// }
-		lines := strings.Split(cs[0].Text, "\n", 2)
-		status, _ := b.Attributes["status"]
 		setpath := func() gui.Refresh { return p.SetPath("/" + bugname) }
 		bid := gui.Button(bugname)
 		bid.OnClick(setpath)
-		bstatus := gui.Text(status)
-		bstatus.OnClick(setpath)
+		bstatus := AttributeChooser(b, "status")
 		bdate := gui.Text(cs[0].Date)
 		bdate.OnClick(setpath)
-		btitle := gui.Text(lines[0])
-		btitle.OnClick(setpath)
+		btitle := AttributeChooser(b, "title")
 		bugtable = append(bugtable, []gui.Widget{bid, bstatus, bdate, btitle})
 	}
 	bugs = append(bugs, gui.Empty(), gui.Empty(), gui.Table(bugtable...))
@@ -105,6 +120,9 @@ func BugPage(p gui.PathHandler, btype έντομο.Type, bnum int) gui.Widget {
 	listall.OnClick(func() gui.Refresh { return p.SetPath("/") })
 	bugs := []gui.Widget{
 		listall,
+	}
+	for attr := range b.Attributes {
+		bugs = append(bugs, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr)))
 	}
 	for _, c := range cs {
 		bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))

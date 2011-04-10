@@ -122,7 +122,7 @@ type Type string
 
 // έντομο
 
-func (t Type) New(text string) (b Bug, err os.Error) {
+func (t Type) New(text string) (b *Bug, err os.Error) {
 	b.Type = t
 	b.Id = createName()
 	b.Attributes = make(map[string]string)
@@ -130,7 +130,7 @@ func (t Type) New(text string) (b Bug, err os.Error) {
 	return
 }
 
-func (t Type) List() (out []Bug, err os.Error) {
+func (t Type) List() (out []*Bug, err os.Error) {
 	d, err := os.Open(".entomon/"+string(t), os.O_RDONLY, 0)
 	defer d.Close()
 	if err != nil {
@@ -143,13 +143,27 @@ func (t Type) List() (out []Bug, err os.Error) {
 	sort.SortStrings(ns)
 	for _, n := range ns {
 		if len(n) > ndate+2 {
-			out = append(out, Bug{n, t, nil})
+			out = append(out, &Bug{n, t, nil})
 		}
 	}
 	return
 }
 
-func LookupBug(b string) (out Bug, err os.Error) {
+func (t Type) AttributeOptions(attr string) []string {
+	data, err := ioutil.ReadFile(".entomon/"+string(t)+"/options/"+attr)
+	if err != nil {
+		return nil // FIXME: should I verify ENOEXIST error?
+	}
+	as := []string{}
+	for _,a := range strings.Split(string(data), "\n", -1) {
+		if len(a) > 0 {
+			as = append(as, a)
+		}
+	}
+	return as
+}
+
+func LookupBug(b string) (out *Bug, err os.Error) {
 	xs := strings.Split(b, "-", 2)
 	t := Type(xs[0])
 	if len(xs) < 2 {
@@ -279,4 +293,9 @@ func (b *Bug) Comments() (out []Comment, err os.Error) {
 		}
 	}
 	return
+}
+
+func (b *Bug) WriteAttribute(attr, value string) os.Error {
+	b.Attributes[attr] = value
+	return b.AddComment(attr + ": " + value)
 }
