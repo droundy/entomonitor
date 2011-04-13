@@ -29,23 +29,40 @@ type PageType struct {
 	gui.PathHandler
 }
 
+func Header(page string, p gui.PathHandler) gui.Widget {
+	elems := []gui.Widget{}
+	list := gui.Button("Bug list")
+	list.OnClick(func() gui.Refresh {
+		p.SetPath("/")
+		return gui.NeedsRefresh
+	})
+	elems = append(elems, list)
+	about := gui.Button("About")
+	about.OnClick(func() gui.Refresh {
+		p.SetPath("/about")
+		return gui.NeedsRefresh
+	})
+	elems = append(elems, about)
+	return gui.Row(elems...)
+}
+
 func Page() gui.Widget {
 	x := gui.MakePathHandler(nil)
-	x.SetWidget(BugList(x))
+	x.SetWidget(gui.Column(Header("/", x), BugList(x)))
 	x.OnPath(func() gui.Refresh {
 		p := x.GetPath()[1:]
 		fmt.Println("My path is actually", p)
 		psplit := strings.Split(p, "-", 2)
 		if len(psplit) != 2 {
-			x.SetWidget(BugList(x))
+			x.SetWidget(gui.Column(Header(p, x), BugList(x)))
 			return gui.NeedsRefresh
 		}
 		bnum, err := strconv.Atoi(psplit[1])
 		if err != nil || len(psplit[0]) == 0 {
-			x.SetWidget(BugList(x))
+			x.SetWidget(gui.Column(Header(p, x), BugList(x)))
 			return gui.NeedsRefresh
 		}
-		x.SetWidget(BugPage(x, έντομο.Type(psplit[0]), bnum))
+		x.SetWidget(gui.Column(Header(p, x), BugPage(x, έντομο.Type(psplit[0]), bnum)))
 		return gui.NeedsRefresh
 	})
 	return x
