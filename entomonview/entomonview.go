@@ -48,21 +48,21 @@ func Header(page string, p gui.PathHandler) gui.Widget {
 
 func Page() gui.Widget {
 	x := gui.MakePathHandler(nil)
-	x.SetWidget(gui.Column(Header("/", x), BugList(x)))
+	x.SetWidget(gui.Paragraphs(Header("/", x), BugList(x)))
 	x.OnPath(func() gui.Refresh {
 		p := x.GetPath()[1:]
 		fmt.Println("My path is actually", p)
 		psplit := strings.Split(p, "-", 2)
 		if len(psplit) != 2 {
-			x.SetWidget(gui.Column(Header(p, x), BugList(x)))
+			x.SetWidget(gui.Paragraphs(Header(p, x), BugList(x)))
 			return gui.NeedsRefresh
 		}
 		bnum, err := strconv.Atoi(psplit[1])
 		if err != nil || len(psplit[0]) == 0 {
-			x.SetWidget(gui.Column(Header(p, x), BugList(x)))
+			x.SetWidget(gui.Paragraphs(Header(p, x), BugList(x)))
 			return gui.NeedsRefresh
 		}
-		x.SetWidget(gui.Column(Header(p, x), BugPage(x, έντομο.Type(psplit[0]), bnum)))
+		x.SetWidget(gui.Paragraphs(Header(p, x), BugPage(x, έντομο.Type(psplit[0]), bnum)))
 		return gui.NeedsRefresh
 	})
 	return x
@@ -88,7 +88,7 @@ func AttributeChooser(b *έντομο.Bug, attr string) interface { gui.Widget; 
 }
 
 func BugList(p gui.PathHandler) gui.Widget {
-	bugs := []gui.Widget{gui.Text("This will be a bug browser, some day!")}
+	bugs := []gui.Widget{}
 	bl, err := bug.List()
 	if err != nil {
 		panic("bug.List: " + err.String())
@@ -113,7 +113,8 @@ func BugList(p gui.PathHandler) gui.Widget {
 		bstatus := AttributeChooser(b, "status")
 		bdate := gui.Text(cs[0].Date)
 		bdate.OnClick(setpath)
-		btitle := AttributeChooser(b, "title")
+		//btitle := AttributeChooser(b, "title")
+		btitle := gui.Text(b.Attributes["title"])
 		bugtable = append(bugtable, []gui.Widget{bid, bstatus, bdate, btitle})
 	}
 	bugs = append(bugs, gui.Empty(), gui.Empty(), gui.Table(bugtable...))
@@ -133,11 +134,7 @@ func BugPage(p gui.PathHandler, btype έντομο.Type, bnum int) gui.Widget {
 	if err != nil {
 		return gui.Text("Error: " + err.String())
 	}
-	listall := gui.Button("List all bugs")
-	listall.OnClick(func() gui.Refresh { return p.SetPath("/") })
-	bugs := []gui.Widget{
-		listall,
-	}
+	bugs := []gui.Widget{}
 	for attr := range b.Attributes {
 		bugs = append(bugs, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr)))
 	}
