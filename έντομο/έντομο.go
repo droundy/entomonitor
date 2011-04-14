@@ -150,12 +150,12 @@ func (t Type) List() (out []*Bug, err os.Error) {
 }
 
 func (t Type) AttributeOptions(attr string) []string {
-	data, err := ioutil.ReadFile(".entomon/"+string(t)+"/options/"+attr)
+	data, err := ioutil.ReadFile(".entomon/" + string(t) + "/options/" + attr)
 	if err != nil {
 		return nil // FIXME: should I verify ENOEXIST error?
 	}
 	as := []string{}
-	for _,a := range strings.Split(string(data), "\n", -1) {
+	for _, a := range strings.Split(string(data), "\n", -1) {
 		if len(a) > 0 {
 			as = append(as, a)
 		}

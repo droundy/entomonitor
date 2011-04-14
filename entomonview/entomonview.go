@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 	"strconv"
+	"io/ioutil"
 	"έντομο"
 	"github.com/droundy/gui"
 	"github.com/droundy/goopt"
@@ -37,12 +38,17 @@ func Header(page string, p gui.PathHandler) gui.Widget {
 		return gui.NeedsRefresh
 	})
 	elems = append(elems, list)
+	newbug := gui.Button("Report new bug")
+	newbug.OnClick(func() gui.Refresh {
+		p.SetPath("/new")
+		return gui.NeedsRefresh
+	})
 	about := gui.Button("About")
 	about.OnClick(func() gui.Refresh {
 		p.SetPath("/about")
 		return gui.NeedsRefresh
 	})
-	elems = append(elems, about)
+	elems = append(elems, newbug, about)
 	return gui.Row(elems...)
 }
 
@@ -54,7 +60,21 @@ func Page() gui.Widget {
 		fmt.Println("My path is actually", p)
 		psplit := strings.Split(p, "-", 2)
 		if len(psplit) != 2 {
-			x.SetWidget(gui.Paragraphs(Header(p, x), BugList(x)))
+			switch p {
+			case "/", "":
+				x.SetWidget(gui.Paragraphs(Header(p, x), BugList(x)))
+			default:
+				if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".txt"); err == nil {
+					x.SetWidget(gui.Paragraphs(Header(p, x), gui.Text(string(page))))
+				} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".md"); err == nil {
+					x.SetWidget(gui.Paragraphs(Header(p, x), gui.Text(string(page))))
+				} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".html"); err == nil {
+					x.SetWidget(gui.Paragraphs(Header(p, x),
+						gui.Text("This html shouldn't be escaped"), gui.Text(string(page))))
+				} else {
+					x.SetWidget(gui.Paragraphs(Header(p, x), gui.Text("I don't understand: "+p)))
+				}
+			}
 			return gui.NeedsRefresh
 		}
 		bnum, err := strconv.Atoi(psplit[1])
@@ -68,7 +88,11 @@ func Page() gui.Widget {
 	return x
 }
 
-func AttributeChooser(b *έντομο.Bug, attr string) interface { gui.Widget; gui.String; gui.Changeable } {
+func AttributeChooser(b *έντομο.Bug, attr string) interface {
+	gui.Widget
+	gui.String
+	gui.Changeable
+} {
 	opts := b.Type.AttributeOptions(attr)
 	if len(opts) > 1 {
 		menu := gui.Menu(opts...)
