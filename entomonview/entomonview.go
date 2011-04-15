@@ -25,11 +25,6 @@ func main() {
 	}
 }
 
-type PageType struct {
-	gui.Widget
-	gui.PathHandler
-}
-
 func Header(page string, p gui.PathHandler) gui.Widget {
 	elems := []gui.Widget{}
 	list := gui.Button("Bug list")
@@ -63,6 +58,8 @@ func Page() gui.Widget {
 			switch p {
 			case "/", "":
 				x.SetWidget(gui.Paragraphs(Header(p, x), BugList(x)))
+			case "new":
+				x.SetWidget(gui.Paragraphs(Header(p, x), NewBug(x, έντομο.Type("bug"))))
 			default:
 				if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".txt"); err == nil {
 					x.SetWidget(gui.Paragraphs(Header(p, x), gui.Text(string(page))))
@@ -88,24 +85,42 @@ func Page() gui.Widget {
 	return x
 }
 
-func AttributeChooser(b *έντομο.Bug, attr string) interface {
+type WhenToWrite bool
+
+const (
+	WriteNow   WhenToWrite = true
+	WriteLater WhenToWrite = false
+)
+
+func AttributeChooser(b *έντομο.Bug, attr string, imm WhenToWrite) interface {
 	gui.Widget
 	gui.String
 	gui.Changeable
 } {
 	opts := b.Type.AttributeOptions(attr)
+	b.Initialize()
+	b.Comments()
 	if len(opts) > 1 {
 		menu := gui.Menu(opts...)
+		fmt.Println("looking at", attr)
 		menu.SetString(b.Attributes[attr])
 		menu.OnChange(func() gui.Refresh {
-			b.WriteAttribute(attr, menu.GetString())
+			if imm == WriteNow {
+				b.WriteAttribute(attr, menu.GetString())
+			} else {
+				b.PendingChanges = append(b.PendingChanges, attr+":"+menu.GetString())
+			}
 			return gui.NeedsRefresh
 		})
 		return menu
 	}
 	edit := gui.EditText(b.Attributes[attr])
 	edit.OnChange(func() gui.Refresh {
-		b.WriteAttribute(attr, edit.GetString())
+		if imm == WriteNow {
+			b.WriteAttribute(attr, edit.GetString())
+		} else {
+			b.PendingChanges = append(b.PendingChanges, attr+":"+edit.GetString())
+		}
 		return gui.NeedsRefresh
 	})
 	return edit
@@ -125,7 +140,7 @@ func BugList(p gui.PathHandler) gui.Widget {
 		bugname := fmt.Sprint(bug, "-", bnum)
 		// bugs = append(bugs, gui.Text(""), gui.Text(bugname))
 		cs, err := b.Comments()
-		if err != nil {
+		if err != nil || len(cs) == 0 {
 			continue
 		}
 		// for _, c := range cs {
@@ -134,7 +149,7 @@ func BugList(p gui.PathHandler) gui.Widget {
 		setpath := func() gui.Refresh { return p.SetPath("/" + bugname) }
 		bid := gui.Button(bugname)
 		bid.OnClick(setpath)
-		bstatus := AttributeChooser(b, "status")
+		bstatus := AttributeChooser(b, "status", WriteNow)
 		bdate := gui.Text(cs[0].Date)
 		bdate.OnClick(setpath)
 		//btitle := AttributeChooser(b, "title")
@@ -160,10 +175,30 @@ func BugPage(p gui.PathHandler, btype έντομο.Type, bnum int) gui.Widget {
 	}
 	bugs := []gui.Widget{}
 	for attr := range b.Attributes {
-		bugs = append(bugs, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr)))
+		bugs = append(bugs, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr, WriteNow)))
 	}
 	for _, c := range cs {
 		bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
 	}
 	return gui.Column(bugs...)
+}
+
+func NewBug(p gui.PathHandler, btype έντομο.Type) gui.Widget {
+	attrs := []string{"title", "status"}
+	fields := []gui.Widget{}
+	b := btype.Create()
+	for _, attr := range attrs {
+		fields = append(fields, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr, WriteLater)))
+	}
+	maintext := gui.EditText("")
+	fields = append(fields, gui.Row(gui.Text("Comment:"), maintext))
+	submit := gui.Button("Submit bug")
+	submit.OnClick(func() gui.Refresh {
+		b.PendingChanges = append(b.PendingChanges, maintext.GetString())
+		b.FlushPending()
+		p.SetPath("/")
+		return gui.NeedsRefresh
+	})
+	fields = append(fields, submit)
+	return gui.Column(fields...)
 }

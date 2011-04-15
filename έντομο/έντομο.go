@@ -122,7 +122,16 @@ type Type string
 
 // έντομο
 
+func (t Type) Create() *Bug {
+	var b Bug
+	b.Type = t
+	b.Id = createName()
+	b.Attributes = make(map[string]string)
+	return &b
+}
+
 func (t Type) New(text string) (b *Bug, err os.Error) {
+	b = new(Bug)
 	b.Type = t
 	b.Id = createName()
 	b.Attributes = make(map[string]string)
@@ -143,7 +152,7 @@ func (t Type) List() (out []*Bug, err os.Error) {
 	sort.SortStrings(ns)
 	for _, n := range ns {
 		if len(n) > ndate+2 {
-			out = append(out, &Bug{n, t, nil})
+			out = append(out, &Bug{n, t, nil, nil})
 		}
 	}
 	return
@@ -189,7 +198,8 @@ func LookupBug(b string) (out *Bug, err os.Error) {
 type Bug struct {
 	Id string
 	Type
-	Attributes map[string]string
+	Attributes     map[string]string
+	PendingChanges []string
 }
 
 func (b *Bug) String() string {
@@ -202,7 +212,7 @@ type Comment struct {
 	Text   string
 }
 
-func (b *Bug) stripAttributes(c Comment) Comment {
+func (b *Bug) Initialize() {
 	if b.Attributes == nil {
 		b.Attributes = make(map[string]string)
 		d, err := os.Open(".entomon/"+string(b.Type)+"/defaults", os.O_RDONLY, 0)
@@ -221,6 +231,10 @@ func (b *Bug) stripAttributes(c Comment) Comment {
 			}
 		}
 	}
+}
+
+func (b *Bug) stripAttributes(c Comment) Comment {
+	b.Initialize()
 	firstl := []string{}
 	t := c.Text
 	for {
@@ -259,6 +273,12 @@ func (b *Bug) stripAttributes(c Comment) Comment {
 
 func (b *Bug) AddComment(t string) os.Error {
 	return WriteComment(fmt.Sprint(".entomon/", b.Type, "/", b.Id), t)
+}
+
+func (b *Bug) FlushPending() os.Error {
+	c := strings.Join(b.PendingChanges, "\n")
+	b.PendingChanges = nil
+	return b.AddComment(c)
 }
 
 func (b *Bug) Comments() (out []Comment, err os.Error) {
