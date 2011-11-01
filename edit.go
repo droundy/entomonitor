@@ -19,20 +19,9 @@ func Edit(start_text string) (out string, err os.Error) {
 	fname := f.Name()
 	defer os.Remove(fname)
 	f.Close()
-	editor, err := exec.LookPath("emacs")
-	if err != nil {
+
+	if err = exec.Command("emacs", fname).Run(); err != nil {
 		return
-	}
-	pid, err := exec.Run(editor, []string{editor, fname}, nil, "", exec.PassThrough, exec.PassThrough, exec.PassThrough)
-	if err != nil {
-		return
-	}
-	ws, err := pid.Wait(0)
-	if err != nil {
-		return
-	}
-	if ws.ExitStatus() != 0 {
-		err = os.NewError(fmt.Sprintf("%s %s exited with '%v'", editor, fname, ws.ExitStatus()))
 	}
 	bs, err := ioutil.ReadFile(fname)
 	return string(bs), err

@@ -1,13 +1,13 @@
 package main
 
 import (
-	"http"
 	"fmt"
 	"strings"
 	"strconv"
 	"io/ioutil"
 	"έντομο"
 	"github.com/droundy/gui"
+	"github.com/droundy/gui/web"
 	"github.com/droundy/goopt"
 )
 
@@ -17,72 +17,72 @@ var bug = έντομο.Type("bug")
 var todo = έντομο.Type("todo")
 
 func main() {
-	http.HandleFunc("/style.css", styleServer)
-
-	err := gui.RunSeparate(*port, Page)
+	err := web.Serve(*port, Page)
 	if err != nil {
 		panic("ListenAndServe: " + err.String())
 	}
 }
 
-func Header(page string, p gui.PathHandler) gui.Widget {
-	elems := []gui.Widget{}
+func Header(page string, p chan<- string) gui.Widget {
 	list := gui.Button("Bug list")
-	list.OnClick(func() gui.Refresh {
-		p.SetPath("/")
-		return gui.NeedsRefresh
-	})
-	elems = append(elems, list)
 	newbug := gui.Button("Report new bug")
-	newbug.OnClick(func() gui.Refresh {
-		p.SetPath("/new")
-		return gui.NeedsRefresh
-	})
 	about := gui.Button("About")
-	about.OnClick(func() gui.Refresh {
-		p.SetPath("/about")
-		return gui.NeedsRefresh
-	})
-	elems = append(elems, newbug, about)
-	return gui.Row(elems...)
+	go func() {
+		for {
+			select {
+			case _ = <- list.Clicks():
+				p <- "/"
+			case _ = <- newbug.Clicks():
+				p <- "/new"
+			case _ = <- about.Clicks():
+				p <- "/about"
+			}
+		}
+	}()
+	return gui.Row(list, newbug, about)
 }
 
-func Page() gui.Widget {
-	x := gui.MakePathHandler(nil)
-	x.SetWidget(gui.Paragraphs(Header("/", x), BugList(x)))
-	x.OnPath(func() gui.Refresh {
-		p := x.GetPath()[1:]
-		fmt.Println("My path is actually", p)
-		psplit := strings.Split(p, "-", 2)
-		if len(psplit) != 2 {
-			switch p {
-			case "/", "":
-				x.SetWidget(gui.Paragraphs(Header(p, x), BugList(x)))
-			case "new":
-				x.SetWidget(gui.Paragraphs(Header(p, x), NewBug(x, έντομο.Type("bug"))))
-			default:
-				if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".txt"); err == nil {
-					x.SetWidget(gui.Paragraphs(Header(p, x), gui.Text(string(page))))
-				} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".md"); err == nil {
-					x.SetWidget(gui.Paragraphs(Header(p, x), gui.Text(string(page))))
-				} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".html"); err == nil {
-					x.SetWidget(gui.Paragraphs(Header(p, x),
-						gui.Text("This html shouldn't be escaped"), gui.Text(string(page))))
+func Page() gui.Window {
+	paths := make(chan string)
+	x := gui.Column(Header("/", paths), BugList(paths))
+	go func() {
+		for {
+			p := <- paths
+			p = p[1:]
+			fmt.Println("My path is actually", p)
+			psplit := strings.SplitN(p, "-", 2)
+			newp := x
+			if len(psplit) != 2 {
+				switch p {
+				case "/", "":
+					newp = gui.Column(Header(p, paths), BugList(paths))
+				case "new":
+					newp = gui.Column(Header(p, paths), NewBug(paths, έντομο.Type("bug")))
+				default:
+					if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".txt"); err==nil {
+						newp = gui.Column(Header(p, paths), gui.Text(string(page)))
+					} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".md"); err==nil {
+						newp = gui.Column(Header(p, paths), gui.Text(string(page)))
+					} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".html"); err==nil {
+						newp = gui.Column(Header(p, paths),
+							gui.Text("This html shouldn't be escaped"), gui.Text(string(page)))
+					} else {
+						newp = gui.Column(Header(p, paths), gui.Text("I don't understand: "+p))
+					}
+				}
+			} else {
+				bnum, err := strconv.Atoi(psplit[1])
+				if err != nil || len(psplit[0]) == 0 {
+					newp = gui.Column(Header(p, paths), BugList(paths))
 				} else {
-					x.SetWidget(gui.Paragraphs(Header(p, x), gui.Text("I don't understand: "+p)))
+					newp = gui.Column(Header(p, paths), BugPage(paths, έντομο.Type(psplit[0]), bnum))
 				}
 			}
-			return gui.NeedsRefresh
+			x.Updater() <- newp
+			x = newp
 		}
-		bnum, err := strconv.Atoi(psplit[1])
-		if err != nil || len(psplit[0]) == 0 {
-			x.SetWidget(gui.Paragraphs(Header(p, x), BugList(x)))
-			return gui.NeedsRefresh
-		}
-		x.SetWidget(gui.Paragraphs(Header(p, x), BugPage(x, έντομο.Type(psplit[0]), bnum)))
-		return gui.NeedsRefresh
-	})
-	return x
+	}()
+	return gui.Window{"Title", "/", x}
 }
 
 type WhenToWrite bool
@@ -94,39 +94,41 @@ const (
 
 func AttributeChooser(b *έντομο.Bug, attr string, imm WhenToWrite) interface {
 	gui.Widget
-	gui.String
 	gui.Changeable
 } {
 	opts := b.Type.AttributeOptions(attr)
 	b.Initialize()
 	b.Comments()
-	if len(opts) > 1 {
-		menu := gui.Menu(opts...)
-		fmt.Println("looking at", attr)
-		menu.SetString(b.Attributes[attr])
-		menu.OnChange(func() gui.Refresh {
-			if imm == WriteNow {
-				b.WriteAttribute(attr, menu.GetString())
-			} else {
-				b.PendingChanges = append(b.PendingChanges, attr+":"+menu.GetString())
-			}
-			return gui.NeedsRefresh
-		})
-		return menu
+	var chooser interface {
+		gui.Widget
+		gui.Changeable
 	}
-	edit := gui.EditText(b.Attributes[attr])
-	edit.OnChange(func() gui.Refresh {
-		if imm == WriteNow {
-			b.WriteAttribute(attr, edit.GetString())
-		} else {
-			b.PendingChanges = append(b.PendingChanges, attr+":"+edit.GetString())
+	if len(opts) > 1 {
+		val := 0
+		for i,o := range opts {
+			if o == b.Attributes[attr] {
+				val = i
+			}
 		}
-		return gui.NeedsRefresh
-	})
-	return edit
+		chooser = gui.Menu(val, opts)
+		fmt.Println("looking at", attr)
+	} else {
+		chooser = gui.EditText(b.Attributes[attr])
+	}
+	go func() {
+		for {
+			newvalue := <- chooser.Changes()
+			if imm == WriteNow {
+				b.WriteAttribute(attr, newvalue)
+			} else {
+				b.PendingChanges = append(b.PendingChanges, attr+":"+newvalue)
+			}
+		}
+	}()
+	return chooser
 }
 
-func BugList(p gui.PathHandler) gui.Widget {
+func BugList(p chan string) gui.Widget {
 	bugs := []gui.Widget{}
 	bl, err := bug.List()
 	if err != nil {
@@ -146,21 +148,28 @@ func BugList(p gui.PathHandler) gui.Widget {
 		// for _, c := range cs {
 		// 	bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
 		// }
-		setpath := func() gui.Refresh { return p.SetPath("/" + bugname) }
 		bid := gui.Button(bugname)
-		bid.OnClick(setpath)
 		bstatus := AttributeChooser(b, "status", WriteNow)
 		bdate := gui.Text(cs[0].Date)
-		bdate.OnClick(setpath)
 		//btitle := AttributeChooser(b, "title")
 		btitle := gui.Text(b.Attributes["title"])
+		go func() {
+			for {
+				select {
+				case _ = <- bid.Clicks():
+					p <- "/" + bugname
+				case _ = <- bdate.Clicks():
+					p <- "/" + bugname
+				}
+			}
+		}()
 		bugtable = append(bugtable, []gui.Widget{bid, bstatus, bdate, btitle})
 	}
-	bugs = append(bugs, gui.Empty(), gui.Empty(), gui.Table(bugtable...))
+	bugs = append(bugs, gui.Text(""), gui.Text(""), gui.Table(bugtable))
 	return gui.Column(bugs...)
 }
 
-func BugPage(p gui.PathHandler, btype έντομο.Type, bnum int) gui.Widget {
+func BugPage(p chan string, btype έντομο.Type, bnum int) gui.Widget {
 	bl, err := btype.List()
 	if err != nil {
 		return gui.Text("Error: " + err.String())
@@ -183,22 +192,31 @@ func BugPage(p gui.PathHandler, btype έντομο.Type, bnum int) gui.Widget {
 	return gui.Column(bugs...)
 }
 
-func NewBug(p gui.PathHandler, btype έντομο.Type) gui.Widget {
+func NewBug(p chan string, btype έντομο.Type) gui.Widget {
 	attrs := []string{"title", "status"}
 	fields := []gui.Widget{}
 	b := btype.Create()
 	for _, attr := range attrs {
 		fields = append(fields, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr, WriteLater)))
 	}
-	maintext := gui.EditText("")
-	fields = append(fields, gui.Row(gui.Text("Comment:"), maintext))
+	maintext := gui.TextArea("")
+	fields = append(fields, gui.Text("Comment:"))
+	fields = append(fields, maintext)
 	submit := gui.Button("Submit bug")
-	submit.OnClick(func() gui.Refresh {
-		b.PendingChanges = append(b.PendingChanges, maintext.GetString())
-		b.FlushPending()
-		p.SetPath("/")
-		return gui.NeedsRefresh
-	})
+	go func() {
+		mainstr := ""
+		for {
+			select {
+			case mainstr = <- maintext.Changes():
+				// Nothing to do...
+			case _ = <- submit.Clicks():
+				b.PendingChanges = append(b.PendingChanges, mainstr)
+				b.FlushPending()
+				p <- "/"
+				return
+			}
+		}
+	}()
 	fields = append(fields, submit)
 	return gui.Column(fields...)
 }

@@ -1,13 +1,11 @@
 package main
 
 import (
-	"fmt"
-	"http"
+	"github.com/droundy/gui/web"
 )
 
-func styleServer(c http.ResponseWriter, req *http.Request) {
-	c.SetHeader("Content-Type", "text/css")
-	fmt.Fprint(c, `
+func init() {
+	web.Style = `
 html {
     margin: 0;
     padding: 0;
@@ -29,10 +27,10 @@ h2 { font-family: verdana,helvetica,"sans serif";
 font-weight: bold;
 font-size: 14pt;
 }
-td tr.odd {
+tr.odd {
   background-color: #bbbbff;
 }
-td dr.even {
+tr.even {
   background-color: #ffffff;
 }
 p {
@@ -46,5 +44,5 @@ li {
 a {
   color: #555599;
 }
-`)
+`
 }

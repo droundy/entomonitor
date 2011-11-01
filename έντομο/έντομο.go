@@ -17,24 +17,12 @@ import (
 const ndate = 17
 
 func getDefaultAuthor() string {
-	args := []string{"git", "var", "GIT_AUTHOR_IDENT"}
-	git, err := exec.LookPath("git")
-	if err != nil {
-		return err.String()
-	}
-	pid, err := exec.Run(git, args, nil, "", exec.PassThrough, exec.Pipe, exec.PassThrough)
-	if err != nil {
-		return err.String()
-	}
-	o, err := ioutil.ReadAll(pid.Stdout)
-	if err != nil {
-		return err.String()
-	}
-	_, err = pid.Wait(0) // could have been os.WRUSAGE
-	if err != nil {
-		return err.String()
-	}
-	lines := bytes.Split(o, []byte{'\n'}, 2)
+  args := []string{"var", "GIT_AUTHOR_IDENT"}
+  o, err := exec.Command("git", args...).CombinedOutput()
+  if err != nil {
+    return err.String()
+  }
+	lines := bytes.SplitN(o, []byte{'\n'}, 2)
 	if len(lines[0]) > ndate {
 		lines[0] = lines[0][:len(lines[0])-ndate]
 	}
@@ -89,7 +77,7 @@ func ProjectName() (name string, err os.Error) {
 	err = findEntomon()
 	x, err := ioutil.ReadFile(".entomon/ProjectName")
 	if err == nil {
-		lns := bytes.Split(x, []byte{'\n'}, 2)
+		lns := bytes.SplitN(x, []byte{'\n'}, 2)
 		return string(lns[0]), nil
 	}
 	origd, err := os.Getwd()
@@ -103,7 +91,7 @@ func WriteComment(dname, text string) os.Error {
 		return err
 	}
 	fname := dname + "/" + id
-	comment, err := os.Open(fname, os.O_CREAT+os.O_WRONLY+os.O_EXCL, 0777)
+	comment, err := os.OpenFile(fname, os.O_CREATE+os.O_WRONLY+os.O_EXCL, 0777)
 	if err != nil {
 		return err
 	}
@@ -140,7 +128,7 @@ func (t Type) New(text string) (b *Bug, err os.Error) {
 }
 
 func (t Type) List() (out []*Bug, err os.Error) {
-	d, err := os.Open(".entomon/"+string(t), os.O_RDONLY, 0)
+	d, err := os.Open(".entomon/" + string(t))
 	defer d.Close()
 	if err != nil {
 		return out, nil
@@ -149,7 +137,7 @@ func (t Type) List() (out []*Bug, err os.Error) {
 	if err != nil {
 		return
 	}
-	sort.SortStrings(ns)
+	sort.Strings(ns)
 	for _, n := range ns {
 		if len(n) > ndate+2 {
 			out = append(out, &Bug{n, t, nil, nil})
@@ -164,7 +152,7 @@ func (t Type) AttributeOptions(attr string) []string {
 		return nil // FIXME: should I verify ENOEXIST error?
 	}
 	as := []string{}
-	for _, a := range strings.Split(string(data), "\n", -1) {
+	for _, a := range strings.Split(string(data), "\n") {
 		if len(a) > 0 {
 			as = append(as, a)
 		}
@@ -173,7 +161,7 @@ func (t Type) AttributeOptions(attr string) []string {
 }
 
 func LookupBug(b string) (out *Bug, err os.Error) {
-	xs := strings.Split(b, "-", 2)
+	xs := strings.SplitN(b, "-", 2)
 	t := Type(xs[0])
 	if len(xs) < 2 {
 		err = os.NewError("Should have a '-' in " + b)
@@ -215,7 +203,7 @@ type Comment struct {
 func (b *Bug) Initialize() {
 	if b.Attributes == nil {
 		b.Attributes = make(map[string]string)
-		d, err := os.Open(".entomon/"+string(b.Type)+"/defaults", os.O_RDONLY, 0)
+		d, err := os.Open(".entomon/" + string(b.Type) + "/defaults")
 		as := []string{}
 		if err == nil {
 			as, _ = d.Readdirnames(-1)
@@ -226,7 +214,7 @@ func (b *Bug) Initialize() {
 		for _, a := range as {
 			x, err := ioutil.ReadFile(".entomon/" + string(b.Type) + "/defaults/" + a)
 			if err == nil {
-				xx := strings.Split(string(x), "\n", 2)
+				xx := strings.SplitN(string(x), "\n", 2)
 				b.Attributes[a] = xx[0]
 			}
 		}
@@ -238,17 +226,17 @@ func (b *Bug) stripAttributes(c Comment) Comment {
 	firstl := []string{}
 	t := c.Text
 	for {
-		lines := strings.Split(t, "\n", 2)
+		lines := strings.SplitN(t, "\n", 2)
 		if len(lines) < 2 {
 			break
 		}
-		att := strings.Split(lines[0], ": ", 2)
+		att := strings.SplitN(lines[0], ": ", 2)
 		if len(att) != 2 {
 			firstl = append(firstl, lines[0])
 			t = lines[1]
 			continue
 		}
-		ch := strings.Split(att[1], " -> ", 2)
+		ch := strings.SplitN(att[1], " -> ", 2)
 		if len(att[0]) == 0 {
 			break // This isn't an Attribute: line
 		} else {
@@ -282,7 +270,7 @@ func (b *Bug) FlushPending() os.Error {
 }
 
 func (b *Bug) Comments() (out []Comment, err os.Error) {
-	d, err := os.Open(".entomon/"+string(b.Type)+"/"+b.Id, os.O_RDONLY, 0)
+	d, err := os.Open(".entomon/" + string(b.Type) + "/" + b.Id)
 	defer d.Close()
 	if err != nil {
 		return out, nil
@@ -292,9 +280,9 @@ func (b *Bug) Comments() (out []Comment, err os.Error) {
 	if err != nil {
 		return
 	}
-	sort.SortStrings(ns)
+	sort.Strings(ns)
 	for _, n := range ns {
-		dateauthor := strings.Split(n, "--", 2)
+		dateauthor := strings.SplitN(n, "--", 2)
 		// Now let's put the date into the current timezone...
 		date, err := time.Parse(time.RFC3339, dateauthor[0])
 		if err == nil {
