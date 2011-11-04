@@ -160,6 +160,20 @@ func (t Type) AttributeOptions(attr string) []string {
 	return as
 }
 
+func (t Type) ListAttributes() []string {
+	data, err := ioutil.ReadFile(".entomon/" + string(t) + "/attributes")
+	if err != nil {
+		return nil // FIXME: should I verify ENOEXIST error?
+	}
+	as := []string{}
+	for _, a := range strings.Split(string(data), "\n") {
+		if len(a) > 0 {
+			as = append(as, a)
+		}
+	}
+	return as
+}
+
 func LookupBug(b string) (out *Bug, err os.Error) {
 	xs := strings.SplitN(b, "-", 2)
 	t := Type(xs[0])
@@ -201,7 +215,7 @@ type Comment struct {
 }
 
 func (b *Bug) Initialize() {
-	if b.Attributes == nil {
+	if b.Attributes == nil || len(b.Attributes) == 0 {
 		b.Attributes = make(map[string]string)
 		d, err := os.Open(".entomon/" + string(b.Type) + "/defaults")
 		as := []string{}
@@ -214,6 +228,7 @@ func (b *Bug) Initialize() {
 		for _, a := range as {
 			x, err := ioutil.ReadFile(".entomon/" + string(b.Type) + "/defaults/" + a)
 			if err == nil {
+				//fmt.Println("Setting default value", string(x), "for attribute", a)
 				xx := strings.SplitN(string(x), "\n", 2)
 				b.Attributes[a] = xx[0]
 			}

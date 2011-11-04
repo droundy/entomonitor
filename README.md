@@ -11,6 +11,23 @@ change its format on disk, since that would cause problems for its
 users.  So you either need to get the format right the first time, or
 you need to plan ahead well in the first place.
 
+How to use entomonitor (and status)
+-----------------------------------
+
+Below I discuss the design goals for entomonitor, but here I'll give
+you the quick intro to how to use it.  But even before the quick
+intro:  entomonitor is not yet ready for production use.  It's a fun
+experiment, and I'd be delighted to hear that someone is actually
+using it, but don't expect a polished or complete product.  I'm not
+yet using it myself (except so far as I want to test entomonitor).
+
+You can build entomonitor with gb quite easily, so I won't describe
+that here.  If you've never built anything written in go, you probably
+want to look elsewhere.  Entomonitor is not a finished tool.
+
+You configure entomonitor by editing the contents of the .entomon
+directory.  TODO:  add more documentation here.
+
 Primary goals
 -------------
 

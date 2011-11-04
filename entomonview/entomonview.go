@@ -104,6 +104,7 @@ func AttributeChooser(b *έντομο.Bug, attr string, imm WhenToWrite) interfa
 		gui.Changeable
 	}
 	if len(opts) > 1 {
+		//fmt.Println("looking at", attr, "has value", b.Attributes[attr])
 		val := 0
 		for i,o := range opts {
 			if o == b.Attributes[attr] {
@@ -111,7 +112,6 @@ func AttributeChooser(b *έντομο.Bug, attr string, imm WhenToWrite) interfa
 			}
 		}
 		chooser = gui.Menu(val, opts)
-		fmt.Println("looking at", attr)
 	} else {
 		chooser = gui.EditText(b.Attributes[attr])
 	}
@@ -134,9 +134,12 @@ func BugList(p chan string) gui.Widget {
 	if err != nil {
 		panic("bug.List: " + err.String())
 	}
-	bugtable := [][]gui.Widget{{
-		gui.Text("id"), gui.Text("status"), gui.Text("date"), gui.Text("bug"),
-	}}
+	attributes := bug.ListAttributes()
+	bugtable := [][]gui.Widget{{ gui.Text("id") }}
+	for _,a := range attributes {
+		bugtable[0] = append(bugtable[0], gui.Text(a))
+	}
+	bugtable[0] = append(bugtable[0], gui.Text("date"), gui.Text("bug"))
 	for bnum, b := range bl {
 		b.Comments() // to get attributes
 		bugname := fmt.Sprint(bug, "-", bnum)
@@ -149,10 +152,14 @@ func BugList(p chan string) gui.Widget {
 		// 	bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
 		// }
 		bid := gui.Button(bugname)
-		bstatus := AttributeChooser(b, "status", WriteNow)
+		row := []gui.Widget{ bid }
+		for _,a := range attributes {
+			row = append(row, AttributeChooser(b, a, WriteNow))
+		}
 		bdate := gui.Text(cs[0].Date)
 		//btitle := AttributeChooser(b, "title")
 		btitle := gui.Text(b.Attributes["title"])
+		row = append(row, bdate, btitle)
 		go func() {
 			for {
 				select {
@@ -163,7 +170,7 @@ func BugList(p chan string) gui.Widget {
 				}
 			}
 		}()
-		bugtable = append(bugtable, []gui.Widget{bid, bstatus, bdate, btitle})
+		bugtable = append(bugtable, row)
 	}
 	bugs = append(bugs, gui.Text(""), gui.Text(""), gui.Table(bugtable))
 	return gui.Column(bugs...)
@@ -193,7 +200,7 @@ func BugPage(p chan string, btype έντομο.Type, bnum int) gui.Widget {
 }
 
 func NewBug(p chan string, btype έντομο.Type) gui.Widget {
-	attrs := []string{"title", "status"}
+	attrs := append([]string{"title"}, bug.ListAttributes()...)
 	fields := []gui.Widget{}
 	b := btype.Create()
 	for _, attr := range attrs {
