@@ -1,0 +1,4 @@
+title: allow sorting bugs by different columns
+severity: feature
+status: accepted
+This will be critical when we get lots of bugs.
