@@ -62,7 +62,7 @@ func Page() gui.Window {
 					if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".txt"); err==nil {
 						newp = gui.Column(Header(p, paths), gui.Text(string(page)))
 					} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".md"); err==nil {
-						newp = gui.Column(Header(p, paths), gui.Text(string(page)))
+						newp = gui.Column(Header(p, paths), gui.Markdown(string(page)))
 					} else if page, err := ioutil.ReadFile(".entomon/Static/" + p + ".html"); err==nil {
 						newp = gui.Column(Header(p, paths),
 							gui.Text("This html shouldn't be escaped"), gui.Text(string(page)))
@@ -121,7 +121,7 @@ func AttributeChooser(b *έντομο.Bug, attr string, imm WhenToWrite) interfa
 			if imm == WriteNow {
 				b.WriteAttribute(attr, newvalue)
 			} else {
-				b.PendingChanges = append(b.PendingChanges, attr+":"+newvalue)
+				b.ScheduleChange(attr+":"+newvalue)
 			}
 		}
 	}()
@@ -158,7 +158,7 @@ func BugList(p chan string) gui.Widget {
 		}
 		bdate := gui.Text(cs[0].Date)
 		//btitle := AttributeChooser(b, "title")
-		btitle := gui.Text(b.Attributes["title"])
+		btitle := gui.Markdown(b.Attributes["title"])
 		row = append(row, bdate, btitle)
 		go func() {
 			for {
@@ -176,6 +176,14 @@ func BugList(p chan string) gui.Widget {
 	return gui.Column(bugs...)
 }
 
+func transpose(c []gui.Widget) (out [][]gui.Widget) {
+	out = make([][]gui.Widget, len(c))
+	for i,w := range c {
+		out[i] = []gui.Widget{w} 
+	}
+	return out
+}
+
 func BugPage(p chan string, btype έντομο.Type, bnum int) gui.Widget {
 	bl, err := btype.List()
 	if err != nil {
@@ -189,14 +197,38 @@ func BugPage(p chan string, btype έντομο.Type, bnum int) gui.Widget {
 	if err != nil {
 		return gui.Text("Error: " + err.String())
 	}
-	bugs := []gui.Widget{}
+	attrs := []gui.Widget{}
 	for attr := range b.Attributes {
-		bugs = append(bugs, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr, WriteNow)))
+		attrs = append(attrs, gui.Row(gui.Text(attr+":"), AttributeChooser(b, attr, WriteNow)))
 	}
+	newcomment := gui.TextArea("")
+	attrs = append(attrs, gui.Text("New comment:"))
+	attrs = append(attrs, newcomment)
+	submit := gui.Button("Add comment")
+	attrs = append(attrs, submit)
+	go func() {
+		commentstr := ""
+		for {
+			select {
+			case commentstr = <- newcomment.Changes():
+				fmt.Println("Got nice comment:", commentstr)
+				// Nothing to do...
+			case _ = <- submit.Clicks():
+				fmt.Println("Got add comment pushed.")
+				b.AddComment(commentstr)
+				p <- "/" + string(btype) + "-" + fmt.Sprint(bnum)
+				return
+			}
+		}
+	}()
+	var bugs []gui.Widget
 	for _, c := range cs {
-		bugs = append(bugs, gui.Text(c.Author), gui.Text(c.Date), gui.Text(c.Text))
+		if len(c.Text) > 0 {
+			bugs = append(bugs, gui.Row(gui.Text(c.Author), gui.Text(c.Date)),
+				gui.Markdown(c.Text))
+		}
 	}
-	return gui.Column(bugs...)
+	return gui.Column(append(attrs, gui.Table(transpose(bugs)))...)
 }
 
 func NewBug(p chan string, btype έντομο.Type) gui.Widget {
@@ -217,8 +249,7 @@ func NewBug(p chan string, btype έντομο.Type) gui.Widget {
 			case mainstr = <- maintext.Changes():
 				// Nothing to do...
 			case _ = <- submit.Clicks():
-				b.PendingChanges = append(b.PendingChanges, mainstr)
-				b.FlushPending()
+				b.AddComment(mainstr)
 				p <- "/"
 				return
 			}

@@ -115,6 +115,7 @@ func (t Type) Create() *Bug {
 	b.Type = t
 	b.Id = createName()
 	b.Attributes = make(map[string]string)
+	b.PendingChanges = make(chan string, 100)
 	return &b
 }
 
@@ -123,6 +124,7 @@ func (t Type) New(text string) (b *Bug, err os.Error) {
 	b.Type = t
 	b.Id = createName()
 	b.Attributes = make(map[string]string)
+	b.PendingChanges = make(chan string, 100)
 	err = WriteComment(".entomon/"+string(t)+"/"+b.Id, text)
 	return
 }
@@ -201,7 +203,7 @@ type Bug struct {
 	Id string
 	Type
 	Attributes     map[string]string
-	PendingChanges []string
+	PendingChanges chan string
 }
 
 func (b *Bug) String() string {
@@ -238,7 +240,6 @@ func (b *Bug) Initialize() {
 
 func (b *Bug) stripAttributes(c Comment) Comment {
 	b.Initialize()
-	firstl := []string{}
 	t := c.Text
 	for {
 		lines := strings.SplitN(t, "\n", 2)
@@ -246,31 +247,25 @@ func (b *Bug) stripAttributes(c Comment) Comment {
 			break
 		}
 		att := strings.SplitN(lines[0], ": ", 2)
-		if len(att) != 2 {
-			firstl = append(firstl, lines[0])
-			t = lines[1]
-			continue
+		if len(att) != 2 || len(att[0]) == 0 {
+			// We've passed by all the Attribute: lines
+			break
 		}
 		ch := strings.SplitN(att[1], " -> ", 2)
-		if len(att[0]) == 0 {
-			break // This isn't an Attribute: line
-		} else {
-			if len(ch) == 2 {
-				// It is a change thing like Foo: baz -> bar
-				old, ok := b.Attributes[att[0]]
-				if ok && old == ch[0] {
-					b.Attributes[att[0]] = ch[1]
-				} else {
-					fmt.Println("ch bad", ch)
-				}
+		if len(ch) == 2 {
+			// It is a change thing like Foo: baz -> bar
+			old, ok := b.Attributes[att[0]]
+			if ok && old == ch[0] {
+				b.Attributes[att[0]] = ch[1]
 			} else {
-				b.Attributes[att[0]] = att[1]
+				fmt.Println("ch bad", ch)
 			}
+		} else {
+			b.Attributes[att[0]] = att[1]
 		}
 		t = lines[1]
 	}
-	firstl = append(firstl, t)
-	c.Text = strings.Join(firstl, "\n")
+	c.Text = t
 	return c
 }
 
@@ -278,9 +273,24 @@ func (b *Bug) AddComment(t string) os.Error {
 	return WriteComment(fmt.Sprint(".entomon/", b.Type, "/", b.Id), t)
 }
 
+func (b *Bug) ScheduleChange(s string) {
+	go func() {
+		b.PendingChanges <- s
+	}()
+}
+
 func (b *Bug) FlushPending() os.Error {
-	c := strings.Join(b.PendingChanges, "\n")
-	b.PendingChanges = nil
+	pendingchanges := []string{}
+	notdone := true
+	for notdone {
+		select {
+		case ch := <- b.PendingChanges:
+			pendingchanges = append(pendingchanges, ch)
+		default:
+			notdone = false
+		}
+	}
+	c := strings.Join(pendingchanges, "\n")
 	return b.AddComment(c)
 }
 

@@ -1,0 +1,4 @@
+I added implementation of [markdown][md] using the handy [golang library][knieriem].  Yay.
+
+[md]: http://daringfireball.net/projects/markdown
+[knieriem]: https://github.com/knieriem/markdown
