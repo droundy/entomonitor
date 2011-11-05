@@ -274,9 +274,7 @@ func (b *Bug) AddComment(t string) os.Error {
 }
 
 func (b *Bug) ScheduleChange(s string) {
-	go func() {
-		b.PendingChanges <- s
-	}()
+	b.PendingChanges <- s
 }
 
 func (b *Bug) FlushPending() os.Error {
@@ -331,4 +329,9 @@ func (b *Bug) Comments() (out []Comment, err os.Error) {
 func (b *Bug) WriteAttribute(attr, value string) os.Error {
 	b.Attributes[attr] = value
 	return b.AddComment(attr + ": " + value)
+}
+
+func (b *Bug) ScheduleAttribute(attr, value string) {
+	b.Attributes[attr] = value
+	b.ScheduleChange(attr + ": " + value)
 }

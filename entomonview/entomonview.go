@@ -121,7 +121,7 @@ func AttributeChooser(b *έντομο.Bug, attr string, imm WhenToWrite) interfa
 			if imm == WriteNow {
 				b.WriteAttribute(attr, newvalue)
 			} else {
-				b.ScheduleChange(attr+":"+newvalue)
+				b.ScheduleAttribute(attr, newvalue)
 			}
 		}
 	}()
@@ -249,7 +249,8 @@ func NewBug(p chan string, btype έντομο.Type) gui.Widget {
 			case mainstr = <- maintext.Changes():
 				// Nothing to do...
 			case _ = <- submit.Clicks():
-				b.AddComment(mainstr)
+				b.ScheduleChange(mainstr)
+				b.FlushPending()
 				p <- "/"
 				return
 			}
